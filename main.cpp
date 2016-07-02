@@ -4,57 +4,96 @@
 #include <stdlib.h>
 #include <fstream>
 #include <string>
-
+#include <chrono>
+#include <thread>
 using namespace std;
-
+using namespace std::chrono;
 int main()
 {   /*
     for(size_t i = 0; i < 20 ; ++i)
         cout << (1 + (rand()%100)/400.0) <<endl;
     */
+
+    Kalman* mklm = new Kalman();
+
+    double scale = 1.0;
     ofstream in;
     string tamp;
-    in.open("/home/lyw/mycode/kalman_fusion/predict.txt", std::ios::trunc);
+    in.open("predict.txt", std::ios::trunc);
     Vector3d x_st;
-    Matrix<double, 4, 1> quatss;
+    Matrix<double, 3, 1> acc_bias;
+    acc_bias << -0.025266,0.136696,0.075593;
+    Quaternion<double> quatss;
     Matrix<double, 3, 3> Cbnss;
     Matrix<double, 3, 1> gvector;
     gvector << 0.0,0.0,9.8113;
-    Matrix<double, 3, 1> acc, raw_accelerations, raw_xstate, mxstate, raw_vel;
+    Matrix<double, 3, 1> acc, raw_accelerations, raw_xstate, initialstate, mxstate, raw_vel;
     acc << 0.0,0.0,0.0;
     int count;
-    ifstream imu_file("/home/lyw/mycode/kalman_fusion/imu_data.csv");
-    ifstream imu_file_gt("/home/lyw/mycode/kalman_fusion/ground_data.csv");
+    ifstream imu_file("imu_data.csv");
+    ifstream imu_file_gt("ground_data.csv");
     string line, line_gt;
     if (!imu_file.good()) {
     cout << "no imu file found at " << "imu0.csv";
     return -1;
     }
+    /*
 
+    */
+        //first line the title
         getline(imu_file, line);
         getline(imu_file_gt, line_gt);
+        //second line the initial parameter
         getline(imu_file, line);
         getline(imu_file_gt, line_gt);
+        //timestamp
         stringstream stream_gt1(line_gt);
         string s_gt1;
         getline(stream_gt1, s_gt1, ',');
+        stringstream stream1(line);
+        string s1;
+        getline(stream1, s1, ',');
+        //
         for (int j = 0; j < 3; ++j) {
           getline(stream_gt1, s_gt1, ',');
-          raw_xstate(j, 0) = stof(s_gt1);
+          initialstate(j, 0) = stof(s_gt1);
         }
-        for (int j = 0; j < 4; ++j) {
-          getline(stream_gt1, s_gt1, ',');
-        }
+
+        getline(stream_gt1, s_gt1, ',');
+        quatss.w() = stof(s_gt1);
+        getline(stream_gt1, s_gt1, ',');
+        quatss.x() = stof(s_gt1);
+        getline(stream_gt1, s_gt1, ',');
+        quatss.y() = stof(s_gt1);
+        getline(stream_gt1, s_gt1, ',');
+        quatss.z() = stof(s_gt1);
         for (int j = 0; j < 3; ++j) {
           getline(stream_gt1, s_gt1, ',');
           raw_vel(j, 0) = stof(s_gt1);
         }
-    Kalman mklm(raw_xstate, raw_vel, acc, 1.0, 0.01);
-    while (!imu_file.eof() && !imu_file_gt.eof())
+        for (int j = 0; j < 3; ++j) {
+          getline(stream1, s1, ',');
+        }
+        for (int j = 0; j < 3; ++j) {
+          getline(stream1, s1, ',');
+          raw_accelerations(j,0) = stof(s1);
+        }
+
+
+        //mklm->quat2rotation(Cbnss, quatss);
+        raw_accelerations -= acc_bias;
+        //mklm->quat2cbn(quatss, Cbnss);
+        Cbnss = quatss.toRotationMatrix();
+        acc = (Cbnss)* raw_accelerations - gvector;
+    /*
+
+    */
+        mklm = new Kalman(initialstate, raw_vel, acc, 1.5, 0.01);
+
+    while (getline(imu_file, line) && getline(imu_file_gt, line_gt))
     {
         count ++;
-        getline(imu_file, line);
-        getline(imu_file_gt, line_gt);
+
         stringstream stream(line);
         stringstream stream_gt(line_gt);
         string s;
@@ -71,44 +110,50 @@ int main()
           getline(stream_gt, s_gt, ',');
           raw_xstate(j, 0) = stof(s_gt);
         }
-        if(!(count % 7)){
+        if(!(count % 8)){
+            raw_xstate -= initialstate;
+            scale = (0.5 + (rand()%100 - 50)/500.0);
+            //cout << scale << endl;
             for(int dd = 0; dd <3; ++dd)
             {
-                mxstate(dd, 0) = raw_xstate(dd, 0) * (1 + (rand()%100)/400);
+
+                mxstate(dd, 0) = raw_xstate(dd, 0) * scale;
             }
 
-            mklm.EKFTransSlam(mxstate);
-        }
+            mklm->EKFTransSlam(mxstate, 0.000000001);
+       }
         for (int j = 0; j < 3; ++j) {
           getline(stream, s, ',');
           raw_accelerations(j,0) = stof(s);
         }
-        for (int j = 0; j < 4; ++j) {
-          getline(stream_gt, s_gt, ',');
-          quatss(j,0) = stof(s_gt);
-        }
+        raw_accelerations -= acc_bias;
+         getline(stream_gt, s_gt, ',');
+        quatss.w() = stof(s_gt);
+        getline(stream_gt, s_gt, ',');
+        quatss.x() = stof(s_gt);
+        getline(stream_gt, s_gt, ',');
+        quatss.y() = stof(s_gt);
+        getline(stream_gt, s_gt, ',');
+        quatss.z() = stof(s_gt);
         if(!(count%2)){
-            mklm.quat2rotation(Cbnss, quatss);
-            acc = Cbnss * raw_accelerations + gvector;
-            mklm.EKFTransIMU(acc);
+            //mklm->quat2cbn(quatss, Cbnss);
+            Cbnss = quatss.toRotationMatrix();
+            acc = (Cbnss) * raw_accelerations - gvector;
+            mklm->EKFTransIMU(acc);
         }
-        mklm.getData(x_st);
+
+        mklm->getData(x_st);
         in << tamp  << "\t" << x_st(0) << "\t" << x_st(1) << "\t" << x_st(2) << "\n";
 
-        /*
-        for (size_t i = 0; i < 9; i++)
-             in << cbn[i] << "\t";
-        for (size_t i = 0; i < 3; i++)
-             in << pos[i] << "\t";
-        in << "\n";
-        */
+
     }
 
+
+    this_thread::sleep_for(milliseconds(1));
     imu_file.close();
     in.close();
-
     //mklm.EKFTransIMU(acc);
     //mklm.getData(x_st);
-
+    delete mklm;
     return 0;
 }

@@ -26,6 +26,7 @@ public:
 	void EKFTransIMU(Matrix< double, 3, 1>& acc_measurement);
 	void getData(Matrix< double, 10, 10>& mP, Matrix< double, 10, 1>& x_stat);
 	void quat2rotation(Matrix<double, 3, 3>& rotmat, Matrix<double ,4, 1>& q);
+	void quat2cbn(Matrix<double, 4, 1>& quaternion, Matrix3d& dcm);
 	void getData(Vector3d& x_stat);
 	virtual ~Kalman();
 private:
@@ -37,12 +38,13 @@ private:
 	    	//Kalman gain
 	    	Matrix< double, 10, 3> Ki, Kv, K;
 	    	//
-	        Matrix< double, 10, 10> P;
+	        Matrix< double, 10, 10> P, Q;
 	        Matrix< double, 3, 1> aw, aa;
 
 	        Matrix3d Rwc, Rca, Rimu, Rslam;
 	        double mlambda, mdelta_t;
-	        const double slam_pos_noise = 0.00002, vel_noise  = 0.00001, acc_noise = 0.000001, lambda_noise = 0.0008;
+	        const double slam_pos_noise = 0.0002, vel_noise  = 0.0001, acc_noise = 0.0001, lambda_noise = 0.008;
+	        const double qslam_pos_noise = 0.002, qvel_noise  = 0.08, qacc_noise = 0.0001, qlambda_noise = 0.01;
 	        const Matrix< double, 10, 10> I = Matrix< double, 10, 10>::Identity();
 	        const Matrix< double, 3, 3> I3 = Matrix< double, 3, 3>::Identity();
 

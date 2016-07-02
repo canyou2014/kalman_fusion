@@ -12,7 +12,10 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-std=c++11" />
 					<Add option="-g" />
+					<Add directory="../../../../../usr/include/eigen3" />
+					<Add directory="include" />
 				</Compiler>
 			</Target>
 			<Target title="Release">
@@ -32,7 +35,9 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="include/Kalman.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="src/Kalman.cc" />
 		<Extensions>
 			<envvars />
 			<code_completion />
