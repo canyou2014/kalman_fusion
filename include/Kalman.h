@@ -8,7 +8,7 @@
 #ifndef KALMAN_H_
 #define KALMAN_H_
 #include "Eigen/Dense"
-
+#include <fstream>
 //#include < double, cvd/gl_helpers.h>
 using namespace Eigen;
 
@@ -27,7 +27,7 @@ public:
 	void getData(Matrix< double, 10, 10>& mP, Matrix< double, 10, 1>& x_stat);
 	void quat2rotation(Matrix<double, 3, 3>& rotmat, Matrix<double ,4, 1>& q);
 	void quat2cbn(Matrix<double, 4, 1>& quaternion, Matrix3d& dcm);
-	void getData(Vector3d& x_stat);
+	void getData(Vector3d& x_stat, double& scale_out);
 	virtual ~Kalman();
 private:
 			//F, state transition matrix
