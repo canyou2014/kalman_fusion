@@ -31,7 +31,7 @@ int main()
     gvector << 0.0,0.0,9.8003;
     Matrix<double, 3, 1> acc, raw_accelerations, raw_xstate, initialstate, mxstate, raw_vel;
     acc << 0.0,0.0,0.0;
-    int count;
+    int count = 0;
     ifstream imu_file("imu_data.csv");
     ifstream imu_file_gt("ground_data.csv");
     string line, line_gt;
@@ -91,7 +91,7 @@ int main()
     /*
 
     */
-        mklm = new Kalman(initialstate, raw_vel, acc, 2.2, 0.01);
+        mklm = new Kalman(initialstate, raw_vel, acc, 0.7, 0.01);
 
     while (getline(imu_file, line) && getline(imu_file_gt, line_gt))
     {
@@ -129,7 +129,7 @@ int main()
         quatss.z() = stof(s_gt);
         if(!(count % 8)){
             raw_xstate -= initialstate;
-            scale = (2.0 + (rand()%100 - 50)/2000.0);
+            scale = (1.0 + (rand()%100 - 50)/2000.0);
             //cout << scale << endl;
             for(int dd = 0; dd <3; ++dd)
             {
@@ -138,20 +138,25 @@ int main()
             }
             mklm->EKFTransSlam(mxstate, 0.01);
             sa = true;
+             mklm->getData(x_st, mscale);
+        in << tamp  << "\t" << x_st(0) << "\t" << x_st(1) << "\t" << x_st(2) << "\n";
+        scale_in << mscale << "\n";
+
        }else if(!(count%2)){
             //mklm->quat2cbn(quatss, Cbnss);
             Cbnss = quatss.toRotationMatrix();
-            acc = (Cbnss) * raw_accelerations - gvector;
+            acc = (Cbnss) * raw_accelerations + gvector;
             if(sa)
                 mklm->EKFTransIMU(acc,0.01);
             else
                 mklm->EKFTransIMU(acc);
             sa = false;
-        }
-
-        mklm->getData(x_st, mscale);
+             mklm->getData(x_st, mscale);
         in << tamp  << "\t" << x_st(0) << "\t" << x_st(1) << "\t" << x_st(2) << "\n";
         scale_in << mscale << "\n";
+
+        }
+
 
     }
 

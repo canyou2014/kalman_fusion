@@ -63,6 +63,13 @@ Kalman::Kalman(Matrix<double, 3, 1>& initPos, Matrix<double, 3, 1>& initVel, Mat
 		Ft.block(3, 6, 3, 3 ) = I3 * mdelta_t;
 		Ft(0,9) = -(mdelta_t + mdelta_t*mdelta_t/2)/(mlambda*mlambda);
 
+        G.setZero();
+        G.block(0,0,3,3) = I3 * mdelta_t *mdelta_t *mdelta_t /(6*mlambda);
+        G.block(3,0,3,3) = I3 * mdelta_t *mdelta_t /2;
+
+        G.block(6,0,3,3) = I3 * mdelta_t;
+        G(9,3) = 1;
+
 		P.setIdentity();
 		P.block(0, 0, 3, 3) = I3 * slam_pos_noise*1;
 		P.block(3, 3, 3, 3) = I3 * vel_noise*1;
@@ -70,36 +77,60 @@ Kalman::Kalman(Matrix<double, 3, 1>& initPos, Matrix<double, 3, 1>& initVel, Mat
 		P(9,9) = lambda_noise*1;
 		Q.setIdentity();
 		Q.block(0, 0, 3, 3) = I3 * qslam_pos_noise*0.1;//0.1-----0.1
-		Q.block(3, 3, 3, 3) = I3 * qvel_noise*0.004;//0.0005 0.00034-----0.004
-		Q.block(6, 6, 3, 3) = I3 * qacc_noise*0.06;//0.002-----0.06
+		Q.block(3, 3, 3, 3) = I3 * qvel_noise*0.0005;//0.0005 0.00034-----0.004
+		Q.block(6, 6, 3, 3) = I3 * qacc_noise*0.002;//0.002-----0.06
 		Q(9,9) = qlambda_noise*0.0012;//0.0012-----0.0012
 
 		P *= 0.005;//0.005----0.005
 		Q *= 0.01;//0.01-----0.01
 		Rimu.setIdentity();
 		Rslam.setIdentity();
-		Rimu *= 0.00008;//0.0000001---0.000008
-		Rslam *= 0.0004;//0.002------0.004
+		Rimu *= 0.0000001;//0.0000001---0.000008
+		Rslam *= 0.002;//0.002------0.004
 
 
 }
 void Kalman::EKFTransSlam(Matrix< double, 3, 1>& slam_measurement, double delta_t){
+        Matrix<double, 10, 10> P_temp;
+        Matrix<double, 10, 1> x_temp, x_gain;
 
+
+        mdelta_t = delta_t;
 		mlambda = x_states(9, 0);
 		Ft.block(0, 3, 3, 3 ) = I3 * delta_t / mlambda;
 		Ft.block(0, 6, 3, 3 ) = I3 * delta_t * delta_t / (2*mlambda);
 		Ft.block(3, 6, 3, 3 ) = I3 * delta_t;
+		/*
+        v_noise(0,0) =  mdelta_t *mdelta_t *mdelta_t /(6*mlambda);
+        v_noise(1,0) =  mdelta_t *mdelta_t *mdelta_t /(6*mlambda);
+        v_noise(2,0) =  mdelta_t *mdelta_t *mdelta_t /(6*mlambda);
+
+        v_noise(3,0) =  mdelta_t *mdelta_t /2;
+        v_noise(4,0) =  mdelta_t *mdelta_t /2;
+        v_noise(5,0) =  mdelta_t *mdelta_t /2;
+
+        v_noise(6,0) =  mdelta_t;
+		v_noise(7,0) =  mdelta_t;
+		v_noise(8,0) =  mdelta_t;
+
+*/
         Ft(0,9) = -(mdelta_t + mdelta_t*mdelta_t/2)/(mlambda*mlambda);
 
+		x_temp = Ft*x_states + v_noise*(rand()%100 - 50)/200.0;
 
+/*
+        G.block(0,0,3,3) = I3 * mdelta_t *mdelta_t *mdelta_t /(6*mlambda);
+        G.block(3,0,3,3) = I3 * mdelta_t *mdelta_t /2;
 
-		Matrix<double, 10, 10> P_temp;
-        Matrix<double, 10, 1> x_temp, x_gain;
+        G.block(6,0,3,3) = I3 * mdelta_t;
+        G(9,3) = 1;
+
+    */
 
 		P_temp = Ft*P*Ft.transpose() + Q*mlambda;
         P_temp = (P_temp + P_temp.transpose()) / 2;
 
-		x_temp = Ft*x_states + v_noise*(rand()%100 - 50)/200.0;
+
 
 		Kv = P_temp*Hv.transpose()*((Hv*P_temp*Hv.transpose() + Rslam).inverse());
 		x_gain = Kv*(slam_measurement - x_temp.block(0, 0, 3, 1));
@@ -162,13 +193,17 @@ void Kalman::EKFTransIMU(Matrix< double, 3, 1>& acc_measurement, double delta_t)
 
 }
 void Kalman::EKFTransIMU(Matrix< double, 3, 1>& acc_measurement){
+        Matrix<double, 10, 10> P_temp;
+        Matrix<double, 10, 1> x_temp, x_gain;
 
 		mlambda = x_states(9, 0);
 
 		Ft.block(0, 3, 3, 3 ) = I3 * mdelta_t / mlambda;
 		Ft.block(0, 6, 3, 3 ) = I3 * mdelta_t * mdelta_t / (2*mlambda);
 		Ft.block(3, 6, 3, 3 ) = I3 * mdelta_t;
-        Ft(0,9) = -(mdelta_t + mdelta_t*mdelta_t/2)/(mlambda*mlambda);
+		Ft(0,9) = -(mdelta_t + mdelta_t*mdelta_t/2)/(mlambda*mlambda);
+        x_temp = Ft*x_states + v_noise*(rand()%100 - 50)/200.0;
+
     	/*
         Ft(0,3) = mdelta_t / mlambda;
         Ft(1,4) = mdelta_t / mlambda;
@@ -181,13 +216,11 @@ void Kalman::EKFTransIMU(Matrix< double, 3, 1>& acc_measurement){
         Ft(4,7) = mdelta_t;
         Ft(5,8) = mdelta_t;
  */
-		Matrix<double, 10, 10> P_temp;
-        Matrix<double, 10, 1> x_temp, x_gain;
 
 		P_temp = Ft*P*Ft.transpose() + Q*mlambda;
         P_temp = (P_temp + P_temp.transpose()) / 2;
 
-		x_temp = Ft*x_states + v_noise*(rand()%100 - 50)/200.0;
+
 
 		//Ki = P_temp*Hi.transpose()*((Hi*P_temp*Hi.transpose() + Rimu).inverse());
 		Ki = P_temp.block(0, 6, 10, 3)*((P_temp.block(6,6, 3,3) + Rimu).inverse());

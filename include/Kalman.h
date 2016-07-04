@@ -47,6 +47,7 @@ private:
 	        const double qslam_pos_noise = 0.002, qvel_noise  = 0.08, qacc_noise = 0.0001, qlambda_noise = 0.01;
 	        const Matrix< double, 10, 10> I = Matrix< double, 10, 10>::Identity();
 	        const Matrix< double, 3, 3> I3 = Matrix< double, 3, 3>::Identity();
+	        Matrix<double, 10, 4> G;
 
 };
 
